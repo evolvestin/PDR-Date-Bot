@@ -234,13 +234,14 @@ class UserService:
 
     @staticmethod
     async def delete_chat_message(message: types.Message) -> None:
-        try:
-            await BotInstance().main_bot.delete_message(
-                chat_id=message.chat.id,
-                message_id=message.message_id,
-            )
-        except IndexError and Exception:
-            pass
+        if message.chat.id < 0 and message.reply_to_message:
+            try:
+                await BotInstance().main_bot.delete_message(
+                    chat_id=message.chat.id,
+                    message_id=message.message_id,
+                )
+            except IndexError and Exception:
+                pass
 
 
 class UserTextGenerator:
