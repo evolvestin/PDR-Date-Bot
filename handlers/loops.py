@@ -3,9 +3,13 @@ import asyncio
 import logging
 from handlers import errors
 from datetime import datetime, timezone
-from services import google_client, Logger, Texts, Users
+from database.texts_repository import TextsRepository
+from database.user_repository import UserDateRepository
+from services import google_client, Keyboards, Logger, Telegram, Texts, Users
 
-
+sender = Telegram.MessageSender()
+user_service = Users.UserService()
+texts_service = Texts.TextsService()
 error_handler = errors.TelegramError()
 logger_service = Logger.TelegramLogger()
 google_session = google_client.GoogleSheetsSession()
@@ -42,7 +46,26 @@ class TaskHandlers:
         await logger_service.send_logs_to_telegram()
 
     @staticmethod
-    async def scheduled_actions() -> None:
+    async def new_period_notify() -> None:
+        async with UserDateRepository() as db:
+            dates = await db.get_user_period_dates()
+
+        now = user_service.get_now()
+        for user, date in dates:
+            async with TextsRepository() as db_texts:
+                texts = await db_texts.get_texts_by_language(user.language)
+            user_text_service = Users.UserTextGenerator(user, texts, keys=Keyboards.Keys(user, texts))
+            difference, _, days = user_text_service.get_weeks_and_days_from_date(now, date=date.period_date)
+            if days == 0:
+                period_text = texts_service.period_week_and_day(
+                    texts=texts,
+                    difference_seconds=int(difference.total_seconds()),
+                )
+                text = texts['period_notify'].format(user.full_name, period_text)
+                await sender.message(chat_id=date.chat_id, text=text)
+                await asyncio.sleep(1)
+
+    async def scheduled_actions(self) -> None:
         """
         Performs scheduled actions, such as user backups and lot cleanup.
         This task runs periodically and performs actions based on the current
@@ -51,6 +74,8 @@ class TaskHandlers:
         now = datetime.now(timezone.utc)
         if now.strftime('%M') in ['05', '15', '25', '55'] or os.getenv('LOCAL'):
             await Users.UsersUpdater().back_up_users()
+        if now.strftime('%H:%M') == '09:00':
+            await self.new_period_notify()
         await asyncio.sleep(60)
 
     @staticmethod

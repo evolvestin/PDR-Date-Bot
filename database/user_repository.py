@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy.orm import joinedload
+from sqlalchemy import and_, func, select
 from database.models import User, UserDate
-from sqlalchemy import func, select, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.session import init_postgres_session
 
@@ -231,8 +231,8 @@ class UserDateRepository:
 
     async def get_user_period_dates(self) -> list[tuple[User, UserDate]]:
         result = await self.connection.execute(
-            select(UserDate, User)
-            .join(User, UserDate.user_id == literal(User.id))
+            select(User, UserDate)
+            .join(User, and_(UserDate.user_id == User.id))
             .where(UserDate.period_date.isnot(None))
             .options(joinedload(UserDate.user))
         )
