@@ -107,7 +107,7 @@ class UserRepository:
         result = await self.connection.execute(
             select(func.max(User.google_row_id))
         )
-        max_id = result.scalar() or 0
+        max_id = result.scalar() or 1
         new_user.reaction = reaction
         new_user.google_row_id = max_id + 1
         new_user.needs_backup_update = True
