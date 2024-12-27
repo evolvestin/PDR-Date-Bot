@@ -5,8 +5,8 @@ import random
 from aiogram import types
 from functions.html import code
 from database.models import User
+from datetime import datetime, timedelta
 from services.bot_instance import BotInstance
-from datetime import datetime, timezone, timedelta
 from services import google_client, Keyboards, Users, Logger, Telegram, Texts
 
 
@@ -185,11 +185,14 @@ class GeneralCommands:
 
     async def pdr_command_handler(self) -> list[str]:
         await user_service.update_variable_bot_username()
+        reply_id = self.message.message_id
         if self.user_text_service.message_text in ['/pdr', f'/pdr@{user_service.bot_username}'.lower()]:
-            await user_service.delete_chat_message(message=self.message)
+            deleted = await user_service.delete_chat_message(message=self.message)
+            if deleted:
+                reply_id = None
             text, log_texts = await self.user_text_service.get_pdr_or_period_info(
                 message=self.message,
-                now=datetime.now(timezone(timedelta(hours=int(os.getenv('TIMEZONE'))))).replace(tzinfo=None),
+                now=user_service.get_now(),
                 instruction_key='pdr_instruction',
             )
         else:
@@ -213,14 +216,18 @@ class GeneralCommands:
                 ]
                 text = '\n\n'.join(text_parts)
 
-        await sender.message(chat_id=self.message.chat.id, text=text, reply_id=self.message.message_id)
+        await sender.message(chat_id=self.message.chat.id, text=text, reply_id=reply_id)
         return log_texts
 
     async def period_command_handler(self) -> list[str]:
         await user_service.update_variable_bot_username()
-        now = datetime.now(timezone(timedelta(hours=int(os.getenv('TIMEZONE'))))).replace(tzinfo=None)
+        now = user_service.get_now()
+        reply_id = self.message.message_id
         if self.user_text_service.message_text in ['/period', f'/period@{user_service.bot_username}'.lower()]:
-            await user_service.delete_chat_message(message=self.message)
+            deleted = await user_service.delete_chat_message(message=self.message)
+            if deleted:
+                reply_id = None
+
             text, log_texts = await self.user_text_service.get_pdr_or_period_info(
                 message=self.message,
                 now=now,
@@ -253,5 +260,5 @@ class GeneralCommands:
                 ]
                 text = '\n\n'.join(text_parts)
 
-        await sender.message(chat_id=self.message.chat.id, text=text, reply_id=self.message.message_id)
+        await sender.message(chat_id=self.message.chat.id, text=text, reply_id=reply_id)
         return log_texts

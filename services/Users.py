@@ -5,7 +5,7 @@ import asyncio
 import logging
 from typing import Union
 from aiogram import types
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from gspread_asyncio import AsyncioGspreadSpreadsheet
 
 from functions.html import html_secure
@@ -204,6 +204,10 @@ class UserService:
                 reaction = False
             await db.update_user_reaction(user, reaction)
 
+    @staticmethod
+    def get_now():
+        return datetime.now(timezone(timedelta(hours=int(os.getenv('TIMEZONE'))))).replace(tzinfo=None)
+
     async def get_user_date(self, telegram_user: types.User, chat_id: int) -> tuple[User, UserDate, list[str]]:
         log_texts = []
         async with UserRepository() as db_users:
@@ -233,8 +237,10 @@ class UserService:
             await db.update_user_pdr_date(date=user_date, pdr_date=date)
 
     @staticmethod
-    async def delete_chat_message(message: types.Message) -> None:
+    async def delete_chat_message(message: types.Message) -> bool:
+        deleted = False
         if message.chat.id < 0 and message.reply_to_message:
+            deleted = True
             try:
                 await BotInstance().main_bot.delete_message(
                     chat_id=message.chat.id,
@@ -242,6 +248,7 @@ class UserService:
                 )
             except IndexError and Exception:
                 pass
+        return deleted
 
 
 class UserTextGenerator:
@@ -264,11 +271,16 @@ class UserTextGenerator:
         self.message_text: str = message_text or ''
         self.user_service: UserService = UserService()
 
+    @staticmethod
+    def get_weeks_and_days_from_date(now: datetime, date: datetime) -> tuple[timedelta, int, int]:
+        difference = (now - date)
+        weeks = int(difference.days // 7)
+        days = difference.days - weeks * 7
+        return difference, weeks, days
+
     def get_example_period_instruction(self, now: datetime) -> tuple[str, int, int]:
         example = datetime.fromisoformat(now.strftime('2024-06-13 %H:%M:%S'))
-        example_difference = (now - example)
-        example_weeks = int(example_difference.days // 7)
-        example_days = example_difference.days - example_weeks * 7
+        example_difference, example_weeks, example_days = self.get_weeks_and_days_from_date(now, date=example)
         example_period_text = texts_service.period_week_and_day(
             texts=self.texts,
             difference_seconds=int(example_difference.total_seconds()),
