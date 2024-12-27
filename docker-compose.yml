@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: pdr_date_bot
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+    command: python main.py

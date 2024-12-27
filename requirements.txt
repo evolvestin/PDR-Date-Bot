@@ -1,0 +1,9 @@
+gspread==6.0.2
+asyncpg==0.29.0
+aiogram==3.14.0
+filetype==1.2.0
+sshtunnel==0.4.0
+aiosqlite==0.20.0
+SQLAlchemy==2.0.35
+python-dotenv==1.0.1
+gspread_asyncio==2.0.0
