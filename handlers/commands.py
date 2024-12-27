@@ -131,7 +131,11 @@ class GeneralCommands:
         Handles the '/start' command to initialize the bot for a new user.
         Sends a welcome message, sets user commands.
         """
-        await sender.message(chat_id=self.message.chat.id, text=self.texts['start_text'])
+        await sender.message(
+            chat_id=self.message.chat.id,
+            text=self.texts['start_text'],
+            reply_id=self.message.message_id,
+        )
         await user_service.set_commands(chat_id=self.message.chat.id, texts=self.texts)
 
     async def donate_command_handler(self) -> None:
@@ -156,6 +160,7 @@ class GeneralCommands:
             payload='donate',
             currency='XTR',
             prices=[types.LabeledPrice(label='XTR', amount=amount)],
+            reply_to_message_id=self.message.message_id,
         )
 
     async def id_command_handler(self) -> None:
@@ -193,7 +198,7 @@ class GeneralCommands:
             data = re.sub(r'\D+', '-', data).strip('-')
             search = re.search(r'(\d{2})-(\d{2})-(\d{2,4})', data)
             if search:
-                year = search.group(3)[:2] if len(search.group(3)) < 4 else search.group(3)
+                year = f'20{search.group(3)[:2]}' if len(search.group(3)) < 4 else search.group(3)
                 user_pdr_date = datetime.fromisoformat(f'{year}-{search.group(2)}-{search.group(1)} 00:00:00')
                 await user_service.update_user_pdr_date(
                     user_id=self.user.id,
@@ -208,7 +213,7 @@ class GeneralCommands:
                 ]
                 text = '\n\n'.join(text_parts)
 
-        await sender.message(chat_id=self.message.chat.id, text=text)
+        await sender.message(chat_id=self.message.chat.id, text=text, reply_id=self.message.message_id)
         return log_texts
 
     async def period_command_handler(self) -> list[str]:
@@ -248,5 +253,5 @@ class GeneralCommands:
                 ]
                 text = '\n\n'.join(text_parts)
 
-        await sender.message(chat_id=self.message.chat.id, text=text)
+        await sender.message(chat_id=self.message.chat.id, text=text, reply_id=self.message.message_id)
         return log_texts

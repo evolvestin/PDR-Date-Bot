@@ -117,8 +117,7 @@ async def main():
     await task_handlers.init_constants(start_time)
 
     # Start background tasks
-    if os.getenv('LOCAL'):
-        run_background_tasks()
+    run_background_tasks()
 
     # Start the bot
     await dispatcher.start_polling(BotInstance().main_bot)
