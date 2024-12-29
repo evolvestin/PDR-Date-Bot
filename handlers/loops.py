@@ -3,6 +3,7 @@ import asyncio
 import logging
 from handlers import errors
 from datetime import datetime, timezone
+from functions.html import code, blockquote
 from database.texts_repository import TextsRepository
 from database.user_repository import UserDateRepository
 from services import google_client, Keyboards, Logger, Telegram, Texts, Users
@@ -55,6 +56,14 @@ class TaskHandlers:
                 texts = await db_texts.get_texts_by_language(user.language)
             text = texts['pdr_notify'].format(user.id, user.full_name)
             await sender.message(chat_id=date.chat_id, text=text)
+
+            log_text = (
+                f"{user.full_name}{f' [@{user.username}]' if user.username else ''} {code(user.id)}:\n"
+                f"Оповещение о дате ПДР\n"
+                f"Чат: {code(date.chat_id)}"
+
+            )
+            await logger_service.insert_log_to_queue(blockquote(log_text), bot_header=True)
             await asyncio.sleep(1)
 
     @staticmethod
@@ -75,6 +84,13 @@ class TaskHandlers:
                 )
                 text = texts['period_notify'].format(user.id, user.full_name, period_text)
                 await sender.message(chat_id=date.chat_id, text=text)
+
+                log_text = (
+                    f"{user.full_name}{f' [@{user.username}]' if user.username else ''} {code(user.id)}:\n"
+                    f"Оповещение о новом периоде: {period_text}\n"
+                    f"Чат: {code(date.chat_id)}"
+                )
+                await logger_service.insert_log_to_queue(blockquote(log_text), bot_header=True)
                 await asyncio.sleep(1)
 
     async def scheduled_actions(self) -> None:
