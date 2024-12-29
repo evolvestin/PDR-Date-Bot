@@ -1,4 +1,3 @@
-import os
 import asyncio
 import logging
 from aiogram.filters import or_f

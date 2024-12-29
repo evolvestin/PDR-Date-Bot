@@ -1,3 +1,4 @@
+import os
 from database.session import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy import Boolean, String, ForeignKey, DateTime, BigInteger, Column, Integer
@@ -5,7 +6,7 @@ from sqlalchemy import Boolean, String, ForeignKey, DateTime, BigInteger, Column
 
 class User(Base):
     """Represents a user in the system"""
-    __tablename__ = 'users'
+    __tablename__ = os.getenv('USERS_TABLE')  # Different tables for different bots
 
     id = Column(BigInteger, primary_key=True, comment='Unique Telegram user ID')
     full_name = Column(String, default='', nullable=False, comment='User full name (firstname + lastname)')
@@ -33,10 +34,10 @@ class User(Base):
 
 class UserDate(Base):
     """Represents a user's PRD date"""
-    __tablename__ = 'user_dates'
+    __tablename__ = os.getenv('USER_DATES_TABLE')  # Different tables for different bots
 
     id = Column(BigInteger, primary_key=True, comment='Unique date ID and Google Sheets row ID')
-    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False, comment='User ID')
+    user_id = Column(BigInteger, ForeignKey(f"{os.getenv('USERS_TABLE')}.id"), nullable=False, comment='User ID')
     chat_id = Column(BigInteger, default=0, nullable=False, comment='Telegram chat ID')
     pdr_date = Column(DateTime, default=None, nullable=True, comment='Date of PDR (UTC+3)')
     period_date = Column(DateTime, default=None, nullable=True, comment='Pregnancy period date (UTC+3)')

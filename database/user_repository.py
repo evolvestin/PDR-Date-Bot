@@ -238,6 +238,16 @@ class UserDateRepository:
         )
         return list((row[0], row[1]) for row in result.all())
 
+    async def get_users_with_today_pdr(self, now: datetime) -> list[tuple[User, UserDate]]:
+        date = datetime.fromisoformat(now.strftime(f'{now.year}-{now.month}-{now.day} 00:00:00'))
+        result = await self.connection.execute(
+            select(User, UserDate)
+            .join(User, and_(UserDate.user_id == User.id))
+            .where(UserDate.pdr_date == date)
+            .options(joinedload(UserDate.user))
+        )
+        return list((row[0], row[1]) for row in result.all())
+
     async def get_or_create_user_date(self, user_id: int, chat_id: int) -> UserDate | None:
         result = await self.connection.execute(
             select(UserDate)

@@ -46,6 +46,18 @@ class TaskHandlers:
         await logger_service.send_logs_to_telegram()
 
     @staticmethod
+    async def pdr_date_notify() -> None:
+        async with UserDateRepository() as db:
+            users = await db.get_users_with_today_pdr(now=datetime.now(timezone.utc))
+
+        for user, date in users:
+            async with TextsRepository() as db_texts:
+                texts = await db_texts.get_texts_by_language(user.language)
+            text = texts['pdr_notify'].format(user.id, user.full_name)
+            await sender.message(chat_id=date.chat_id, text=text)
+            await asyncio.sleep(1)
+
+    @staticmethod
     async def new_period_notify() -> None:
         async with UserDateRepository() as db:
             dates = await db.get_user_period_dates()
@@ -61,7 +73,7 @@ class TaskHandlers:
                     texts=texts,
                     difference_seconds=int(difference.total_seconds()),
                 )
-                text = texts['period_notify'].format(user.full_name, period_text)
+                text = texts['period_notify'].format(user.id, user.full_name, period_text)
                 await sender.message(chat_id=date.chat_id, text=text)
                 await asyncio.sleep(1)
 
@@ -74,9 +86,12 @@ class TaskHandlers:
         now = datetime.now(timezone.utc)
         if now.strftime('%M') in ['05', '15', '25', '55'] or os.getenv('LOCAL'):
             await Users.UsersUpdater().back_up_users()
+        if now.strftime('%H:%M') == '08:00':
+            await self.pdr_date_notify()
         if now.strftime('%H:%M') == '09:00':
             await self.new_period_notify()
-        await asyncio.sleep(60)
+        delay = 60 - (datetime.now(timezone.utc) - now).total_seconds()
+        await asyncio.sleep(delay if delay > 0 else 0)
 
     @staticmethod
     async def init_constants(start_time: datetime = None) -> None:

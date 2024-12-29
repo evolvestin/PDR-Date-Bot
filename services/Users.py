@@ -382,8 +382,8 @@ class UsersUpdater:
 
         :param spreadsheet: The Google Sheets session for user notifications.
         """
-        users_worksheet = await spreadsheet.worksheet(title='users')
-        dates_worksheet = await spreadsheet.worksheet(title='dates')
+        users_worksheet = await spreadsheet.worksheet(title=os.getenv('USERS_TABLE'))
+        dates_worksheet = await spreadsheet.worksheet(title=os.getenv('USER_DATES_TABLE'))
 
         users_data = await users_worksheet.get('A1:Z50000', major_dimension='ROWS')
         dates_data = await dates_worksheet.get('A1:Z50000', major_dimension='ROWS')
@@ -474,7 +474,7 @@ class UsersUpdater:
             users = await db_users.get_users_to_backup()
             if users:
                 spreadsheet = await google_session.get_spreadsheet(os.getenv('GOOGLE_SHEET_ID'))
-                worksheet = await spreadsheet.worksheet(title='users')
+                worksheet = await spreadsheet.worksheet(title=os.getenv('USERS_TABLE'))
                 for user in users:
                     sheet_range = f'A{user.google_row_id}:E{user.google_row_id}'
                     try:
@@ -502,7 +502,7 @@ class UsersUpdater:
             dates = await db_dates.get_dates_to_backup()
             if dates:
                 spreadsheet = await google_session.get_spreadsheet(os.getenv('GOOGLE_SHEET_ID'))
-                worksheet = await spreadsheet.worksheet(title='dates')
+                worksheet = await spreadsheet.worksheet(title=os.getenv('USER_DATES_TABLE'))
                 for date in dates:
                     sheet_range = f'A{date.id}:D{date.id}'
                     pdr_date_text, period_date_text = 'None', 'None'
