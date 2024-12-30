@@ -248,7 +248,7 @@ class UserPregnancyRepository:
         )
         return list((row[0], row[1]) for row in result.all())
 
-    async def get_or_create_user_date(self, user_id: int, chat_id: int) -> UserPregnancy | None:
+    async def get_or_create_user_pregnancy(self, user_id: int, chat_id: int) -> UserPregnancy | None:
         result = await self.connection.execute(
             select(UserPregnancy)
             .where(

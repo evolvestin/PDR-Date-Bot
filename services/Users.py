@@ -208,7 +208,11 @@ class UserService:
     def get_now():
         return datetime.now(timezone(timedelta(hours=int(os.getenv('TIMEZONE'))))).replace(tzinfo=None)
 
-    async def get_user_date(self, telegram_user: types.User, chat_id: int) -> tuple[User, UserPregnancy, list[str]]:
+    async def get_user_pregnancy(
+            self,
+            telegram_user: types.User,
+            chat_id: int,
+    ) -> tuple[User, UserPregnancy, list[str]]:
         log_texts = []
         async with UserRepository() as db_users:
             user = await db_users.get_user_by_telegram_id(telegram_id=telegram_user.id)
@@ -221,20 +225,20 @@ class UserService:
                 user = await db_users.create_user(new_user, reaction=False)
 
         async with UserPregnancyRepository() as db_pregnancies:
-            date = await db_pregnancies.get_or_create_user_date(user_id=user.id, chat_id=chat_id)
-        return user, date, log_texts
+            pregnancy = await db_pregnancies.get_or_create_user_pregnancy(user_id=user.id, chat_id=chat_id)
+        return user, pregnancy, log_texts
 
     @staticmethod
     async def update_user_period_date(user_id: int, chat_id: int, date: datetime) -> None:
         async with UserPregnancyRepository() as db:
-            user_date = await db.get_or_create_user_date(user_id, chat_id)
-            await db.update_user_period_date(pregnancy=user_date, period_date=date)
+            user_pregnancy = await db.get_or_create_user_pregnancy(user_id, chat_id)
+            await db.update_user_period_date(pregnancy=user_pregnancy, period_date=date)
 
     @staticmethod
     async def update_user_pdr_date(user_id: int, chat_id: int, date: datetime) -> None:
         async with UserPregnancyRepository() as db:
-            user_date = await db.get_or_create_user_date(user_id, chat_id)
-            await db.update_user_pdr_date(pregnancy=user_date, pdr_date=date)
+            user_pregnancy = await db.get_or_create_user_pregnancy(user_id, chat_id)
+            await db.update_user_pdr_date(pregnancy=user_pregnancy, pdr_date=date)
 
     @staticmethod
     async def delete_chat_message(message: types.Message) -> bool:
@@ -302,37 +306,36 @@ class UserTextGenerator:
 
         if reply_user:
             target_user = reply_user
-            _, user_date, log_texts = await self.user_service.get_user_date(
-                telegram_user=reply_user,
-                chat_id=message.chat.id,
-            )
+            telegram_user = reply_user
         else:
             target_user = self.user
-            _, user_date, log_texts = await self.user_service.get_user_date(
-                telegram_user=message.from_user,
-                chat_id=message.chat.id,
-            )
+            telegram_user = message.from_user
 
-        if reply_user or user_date.pdr_date or user_date.period_date:
+        _, pregnancy, log_texts = await self.user_service.get_user_pregnancy(
+            telegram_user=telegram_user,
+            chat_id=message.chat.id,
+        )
+
+        if reply_user or pregnancy.pdr_date or pregnancy.period_date:
             user_full_name = html_secure(target_user.full_name.title())
             lines = [self.texts['user_head_text'].format(user_full_name), '']
-            if user_date.pdr_date:
-                lines.append(self.texts['pdr_text'].format(user_date.pdr_date.strftime('%d.%m.%Y')))
+            if pregnancy.pdr_date:
+                lines.append(self.texts['pdr_text'].format(pregnancy.pdr_date.strftime('%d.%m.%Y')))
             else:
                 lines.append(self.texts['pdr_unknown'])
 
-            if user_date.period_date:
+            if pregnancy.period_date:
                 period_text = texts_service.period_week_and_day(
                     texts=self.texts,
-                    difference_seconds=int((now - user_date.period_date).total_seconds()),
+                    difference_seconds=int((now - pregnancy.period_date).total_seconds()),
                 )
                 lines.append(self.texts['period_text'].format(period_text))
             else:
                 lines.append(self.texts['period_unknown'])
 
-            if not user_date.pdr_date or not user_date.period_date:
+            if not pregnancy.pdr_date or not pregnancy.period_date:
                 lines.append('')
-                if not user_date.pdr_date:
+                if not pregnancy.pdr_date:
                     if reply_user:
                         lines.append(
                             self.texts['pdr_instruction_reply'].format(user_full_name)
@@ -340,7 +343,7 @@ class UserTextGenerator:
                     else:
                         lines.append(self.texts['pdr_instruction'])
 
-                if not user_date.period_date:
+                if not pregnancy.period_date:
                     period_instruction_text, example_weeks, example_days = (
                         self.get_example_period_instruction(now)
                     )
@@ -457,7 +460,7 @@ class UsersUpdater:
                         UserPregnancy(
                             id=google_row_id,
                             user_id=int(user_id),
-                            chat_id=record.get('chat_id'),
+                            chat_id=int(record.get('chat_id', user_id)),
                             pdr_date=pdr_date,
                             period_date=period_date,
                             gender=record.get('gender'),
