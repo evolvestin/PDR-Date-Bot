@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from aiogram import Dispatcher, Router, F
 from services.bot_instance import BotInstance
 from database import session as database_session
-from database.models import Log, Texts, User, UserDate
+from database.models import Log, Texts, User, UserPregnancy
 from handlers import loops, callbacks, commands, errors, messages, payments
 
 task_handlers = loops.TaskHandlers()
@@ -103,7 +103,7 @@ async def main():
 
     # Initialize the databases
     await database_session.init_database(
-        postgres_tables=[User.__tablename__, UserDate.__tablename__],
+        postgres_tables=[User.__tablename__, UserPregnancy.__tablename__],
         sqlite_tables=[Log.__tablename__, Texts.__tablename__],
     )
 

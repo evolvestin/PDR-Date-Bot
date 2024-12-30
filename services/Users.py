@@ -12,9 +12,9 @@ from functions.html import html_secure
 from services.bot_instance import BotInstance
 from services import google_client, Keyboards, Telegram, Texts
 
-from database.models import User, UserDate
+from database.models import User, UserPregnancy
 from database.texts_repository import TextsRepository
-from database.user_repository import UserRepository, UserDateRepository
+from database.user_repository import UserRepository, UserPregnancyRepository
 
 
 sender = Telegram.MessageSender()
@@ -25,7 +25,7 @@ google_session = google_client.GoogleSheetsSession()
 class UserService:
     """
     Service for managing user-related operations, including database interactions,
-    user dates, and bot-specific functionality such as setting commands
+    user pregnancies, and bot-specific functionality such as setting commands
     and handling user reactions.
 
     This class implements the Singleton pattern to ensure only one instance exists.
@@ -208,7 +208,7 @@ class UserService:
     def get_now():
         return datetime.now(timezone(timedelta(hours=int(os.getenv('TIMEZONE'))))).replace(tzinfo=None)
 
-    async def get_user_date(self, telegram_user: types.User, chat_id: int) -> tuple[User, UserDate, list[str]]:
+    async def get_user_date(self, telegram_user: types.User, chat_id: int) -> tuple[User, UserPregnancy, list[str]]:
         log_texts = []
         async with UserRepository() as db_users:
             user = await db_users.get_user_by_telegram_id(telegram_id=telegram_user.id)
@@ -220,21 +220,21 @@ class UserService:
                 new_user.language = 'ru' if new_user.language not in language_codes else new_user.language
                 user = await db_users.create_user(new_user, reaction=False)
 
-        async with UserDateRepository() as db_dates:
-            date = await db_dates.get_or_create_user_date(user_id=user.id, chat_id=chat_id)
+        async with UserPregnancyRepository() as db_pregnancies:
+            date = await db_pregnancies.get_or_create_user_date(user_id=user.id, chat_id=chat_id)
         return user, date, log_texts
 
     @staticmethod
     async def update_user_period_date(user_id: int, chat_id: int, date: datetime) -> None:
-        async with UserDateRepository() as db:
+        async with UserPregnancyRepository() as db:
             user_date = await db.get_or_create_user_date(user_id, chat_id)
-            await db.update_user_period_date(date=user_date, period_date=date)
+            await db.update_user_period_date(pregnancy=user_date, period_date=date)
 
     @staticmethod
     async def update_user_pdr_date(user_id: int, chat_id: int, date: datetime) -> None:
-        async with UserDateRepository() as db:
+        async with UserPregnancyRepository() as db:
             user_date = await db.get_or_create_user_date(user_id, chat_id)
-            await db.update_user_pdr_date(date=user_date, pdr_date=date)
+            await db.update_user_pdr_date(pregnancy=user_date, pdr_date=date)
 
     @staticmethod
     async def delete_chat_message(message: types.Message) -> bool:
@@ -378,21 +378,21 @@ class UsersUpdater:
 
     async def update_users_in_database(self, spreadsheet: AsyncioGspreadSpreadsheet) -> None:
         """
-        Updates user data and their dates in the database from Google Sheets.
+        Updates user data and their pregnancies in the database from Google Sheets.
 
         :param spreadsheet: The Google Sheets session for user notifications.
         """
         users_worksheet = await spreadsheet.worksheet(title=os.getenv('USERS_TABLE'))
-        dates_worksheet = await spreadsheet.worksheet(title=os.getenv('USER_DATES_TABLE'))
+        pregnancies_worksheet = await spreadsheet.worksheet(title=os.getenv('USER_PREGNANCIES_TABLE'))
 
         users_data = await users_worksheet.get('A1:Z50000', major_dimension='ROWS')
-        dates_data = await dates_worksheet.get('A1:Z50000', major_dimension='ROWS')
+        pregnancies_data = await pregnancies_worksheet.get('A1:Z50000', major_dimension='ROWS')
         users = self.generate_users(users_data)
-        dates = self.generate_dates(dates_data)
+        pregnancies = self.generate_pregnancies(pregnancies_data)
         async with UserRepository() as db_users:
             await db_users.sync_users(users)
-        async with UserDateRepository() as db_dates:
-            await db_dates.sync_dates(dates)
+        async with UserPregnancyRepository() as db_pregnancies:
+            await db_pregnancies.sync_pregnancies(pregnancies)
 
     @staticmethod
     def generate_users(data: list[list[str]]) -> list[User]:
@@ -428,13 +428,13 @@ class UsersUpdater:
         return response
 
     @staticmethod
-    def generate_dates(data: list[list[str]]) -> list[UserDate]:
+    def generate_pregnancies(data: list[list[str]]) -> list[UserPregnancy]:
         """
-        Generates a list of UserDate objects from raw dates data.
+        Generates a list of UserDate objects from raw pregnancies data.
 
-         :param data: The raw dates data from the spreadsheet.
+         :param data: The raw pregnancies data from the spreadsheet.
          :return: A list of UserDate objects.
-         :rtype: list[UserDate]
+         :rtype: list[UserPregnancy]
          """
         google_row_id = 1
         response = []
@@ -454,12 +454,13 @@ class UsersUpdater:
                     if record.get('period_date'):
                         period_date = datetime.fromisoformat(record['period_date'])
                     response.append(
-                        UserDate(
+                        UserPregnancy(
                             id=google_row_id,
                             user_id=int(user_id),
                             chat_id=record.get('chat_id'),
                             pdr_date=pdr_date,
                             period_date=period_date,
+                            gender=record.get('gender'),
                         )
                     )
         return response
@@ -467,8 +468,8 @@ class UsersUpdater:
     @staticmethod
     async def back_up_users() -> None:
         """
-        Backs up user data and dates from the database to Google Sheets.
-        Extracts user data and their dates, and updates them in the corresponding Google Sheets.
+        Backs up user data and pregnancies from the database to Google Sheets.
+        Extracts user data and their pregnancies, and updates them in the corresponding Google Sheets.
         """
         async with UserRepository() as db_users:
             users = await db_users.get_users_to_backup()
@@ -498,18 +499,18 @@ class UsersUpdater:
                     backup_date = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(' ', 'seconds')
                     logging.warning(f' {backup_date} BACKUP User {user.id}: SUCCESS')
 
-        async with UserDateRepository() as db_dates:
-            dates = await db_dates.get_dates_to_backup()
-            if dates:
+        async with UserPregnancyRepository() as db_pregnancies:
+            pregnancies = await db_pregnancies.get_pregnancies_to_backup()
+            if pregnancies:
                 spreadsheet = await google_session.get_spreadsheet(os.getenv('GOOGLE_SHEET_ID'))
-                worksheet = await spreadsheet.worksheet(title=os.getenv('USER_DATES_TABLE'))
-                for date in dates:
-                    sheet_range = f'A{date.id}:D{date.id}'
+                worksheet = await spreadsheet.worksheet(title=os.getenv('USER_PREGNANCIES_TABLE'))
+                for pregnancy in pregnancies:
+                    sheet_range = f'A{pregnancy.id}:E{pregnancy.id}'
                     pdr_date_text, period_date_text = 'None', 'None'
-                    if date.pdr_date:
-                        pdr_date_text = date.pdr_date.isoformat(' ', 'seconds')
-                    if date.period_date:
-                        period_date_text = date.period_date.isoformat(' ', 'seconds')
+                    if pregnancy.pdr_date:
+                        pdr_date_text = pregnancy.pdr_date.isoformat(' ', 'seconds')
+                    if pregnancy.period_date:
+                        period_date_text = pregnancy.period_date.isoformat(' ', 'seconds')
 
                     try:
                         date_range = await worksheet.range(sheet_range)
@@ -521,12 +522,13 @@ class UsersUpdater:
                         else:
                             raise error
 
-                    date_range[0].value = date.user_id
-                    date_range[1].value = date.chat_id
+                    date_range[0].value = pregnancy.user_id
+                    date_range[1].value = pregnancy.chat_id
                     date_range[2].value = pdr_date_text
                     date_range[3].value = period_date_text
+                    date_range[4].value = pregnancy.gender or 'None'
 
                     await worksheet.update_cells(date_range)
-                    await db_dates.mark_date_as_synced(date)
+                    await db_pregnancies.mark_pregnancy_as_synced(pregnancy)
                     backup_date = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(' ', 'seconds')
-                    logging.warning(f' {backup_date} BACKUP Date {date.id} {date.user_id}: SUCCESS')
+                    logging.warning(f' {backup_date} BACKUP Date {pregnancy.id} {pregnancy.user_id}: SUCCESS')

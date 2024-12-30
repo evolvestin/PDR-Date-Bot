@@ -5,7 +5,7 @@ from handlers import errors
 from datetime import datetime, timezone
 from functions.html import code, blockquote
 from database.texts_repository import TextsRepository
-from database.user_repository import UserDateRepository
+from database.user_repository import UserPregnancyRepository
 from services import google_client, Keyboards, Logger, Telegram, Texts, Users
 
 sender = Telegram.MessageSender()
@@ -48,19 +48,19 @@ class TaskHandlers:
 
     @staticmethod
     async def pdr_date_notify() -> None:
-        async with UserDateRepository() as db:
+        async with UserPregnancyRepository() as db:
             users = await db.get_users_with_today_pdr(now=datetime.now(timezone.utc))
 
-        for user, date in users:
+        for user, pregnancy in users:
             async with TextsRepository() as db_texts:
                 texts = await db_texts.get_texts_by_language(user.language)
             text = texts['pdr_notify'].format(user.id, user.full_name)
-            await sender.message(chat_id=date.chat_id, text=text)
+            await sender.message(chat_id=pregnancy.chat_id, text=text)
 
             log_text = (
                 f"{user.full_name}{f' [@{user.username}]' if user.username else ''} {code(user.id)}:\n"
                 f"Оповещение о дате ПДР\n"
-                f"Чат: {code(date.chat_id)}"
+                f"Чат: {code(pregnancy.chat_id)}"
 
             )
             await logger_service.insert_log_to_queue(blockquote(log_text), bot_header=True)
@@ -68,27 +68,35 @@ class TaskHandlers:
 
     @staticmethod
     async def new_period_notify() -> None:
-        async with UserDateRepository() as db:
-            dates = await db.get_user_period_dates()
+        async with UserPregnancyRepository() as db:
+            pregnancies = await db.get_user_period_pregnancy()
 
         now = user_service.get_now()
-        for user, date in dates:
+        for user, pregnancy in pregnancies:
+            is_notify_allowed = False
             async with TextsRepository() as db_texts:
                 texts = await db_texts.get_texts_by_language(user.language)
             user_text_service = Users.UserTextGenerator(user, texts, keys=Keyboards.Keys(user, texts))
-            difference, _, days = user_text_service.get_weeks_and_days_from_date(now, date=date.period_date)
-            if days == 0:
+            difference, weeks, days = user_text_service.get_weeks_and_days_from_date(now, date=pregnancy.period_date)
+
+            if not pregnancy.pdr_date:
+                if weeks <= 40:
+                    is_notify_allowed = True
+            elif now < pregnancy.pdr_date:
+                is_notify_allowed = True
+
+            if days == 0 and is_notify_allowed:
                 period_text = texts_service.period_week_and_day(
                     texts=texts,
                     difference_seconds=int(difference.total_seconds()),
                 )
                 text = texts['period_notify'].format(user.id, user.full_name, period_text)
-                await sender.message(chat_id=date.chat_id, text=text)
+                await sender.message(chat_id=pregnancy.chat_id, text=text)
 
                 log_text = (
                     f"{user.full_name}{f' [@{user.username}]' if user.username else ''} {code(user.id)}:\n"
                     f"Оповещение о новом периоде: {period_text}\n"
-                    f"Чат: {code(date.chat_id)}"
+                    f"Чат: {code(pregnancy.chat_id)}"
                 )
                 await logger_service.insert_log_to_queue(blockquote(log_text), bot_header=True)
                 await asyncio.sleep(1)

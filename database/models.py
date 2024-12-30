@@ -18,7 +18,7 @@ class User(Base):
         Boolean, default=False, nullable=False, comment='Flag to update user row in Google Sheets'
     )
 
-    user_dates = relationship('UserDate', back_populates='user', cascade='all, delete-orphan')
+    user_pregnancy = relationship('UserPregnancy', back_populates='user', cascade='all, delete-orphan')
 
     def __repr__(self):
         return (
@@ -32,28 +32,30 @@ class User(Base):
         )
 
 
-class UserDate(Base):
+class UserPregnancy(Base):
     """Represents a user's PRD date"""
-    __tablename__ = os.getenv('USER_DATES_TABLE')  # Different tables for different bots
+    __tablename__ = os.getenv('USER_PREGNANCIES_TABLE')  # Different tables for different bots
 
     id = Column(BigInteger, primary_key=True, comment='Unique date ID and Google Sheets row ID')
     user_id = Column(BigInteger, ForeignKey(f"{os.getenv('USERS_TABLE')}.id"), nullable=False, comment='User ID')
     chat_id = Column(BigInteger, default=0, nullable=False, comment='Telegram chat ID')
     pdr_date = Column(DateTime, default=None, nullable=True, comment='Date of PDR (UTC+3)')
     period_date = Column(DateTime, default=None, nullable=True, comment='Pregnancy period date (UTC+3)')
+    gender = Column(Integer, default=None, nullable=True, comment='Gender of the child, 1 - boy, 2 - girl')
     needs_backup_update = Column(
         Boolean, default=False, nullable=False, comment='Flag to update date row in Google Sheets'
     )
 
-    user = relationship('User', back_populates='user_dates')
+    user = relationship('User', back_populates='user_pregnancy')
 
     def __repr__(self):
         return (
-            f'<UserDate(id={self.id}, '
+            f'<UserPregnancy(id={self.id}, '
             f'user_id={self.user_id}, '
             f'chat_id={self.chat_id}, '
             f'pdr_date={self.pdr_date!r}, '
             f'period_date={self.period_date!r}, '
+            f'gender={self.period_date!r}, '
             f'needs_backup_update={self.needs_backup_update})>'
         )
 

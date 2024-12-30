@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy.orm import joinedload
 from sqlalchemy import and_, func, select
-from database.models import User, UserDate
+from database.models import User, UserPregnancy
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.session import init_postgres_session
 
@@ -205,9 +205,9 @@ class UserRepository:
         await self.connection.commit()
 
 
-class UserDateRepository:
-    """Repository class for handling operations with user dates in the database"""
-    async def __aenter__(self) -> 'UserDateRepository':
+class UserPregnancyRepository:
+    """Repository class for handling operations with user pregnancy in the database"""
+    async def __aenter__(self) -> 'UserPregnancyRepository':
         """Creates a session and connects to the database, returns a repository instance"""
         self.connection: AsyncSession = init_postgres_session()
         return self
@@ -217,55 +217,56 @@ class UserDateRepository:
         if self.connection:
             await self.connection.close()
 
-    async def get_all_dates(self) -> list[UserDate]:
+    async def get_all_pregnancy(self) -> list[UserPregnancy]:
         """
-        Retrieves all user dates records from the database.
+        Retrieves all user pregnancy records from the database.
 
-        :return: A list of all user dates.
-        :rtype: list[UserDate]
+        :return: A list of all user pregnancy.
+        :rtype: list[UserPregnancy]
         """
         result = await self.connection.execute(
-            select(UserDate)
+            select(UserPregnancy)
         )
         return list(result.scalars().all())
 
-    async def get_user_period_dates(self) -> list[tuple[User, UserDate]]:
+    async def get_user_period_pregnancy(self) -> list[tuple[User, UserPregnancy]]:
         result = await self.connection.execute(
-            select(User, UserDate)
-            .join(User, and_(UserDate.user_id == User.id))
-            .where(UserDate.period_date.isnot(None))
-            .options(joinedload(UserDate.user))
+            select(User, UserPregnancy)
+            .join(User, and_(UserPregnancy.user_id == User.id))
+            .where(UserPregnancy.period_date.isnot(None))
+            .options(joinedload(UserPregnancy.user))
         )
         return list((row[0], row[1]) for row in result.all())
 
-    async def get_users_with_today_pdr(self, now: datetime) -> list[tuple[User, UserDate]]:
+    async def get_users_with_today_pdr(self, now: datetime) -> list[tuple[User, UserPregnancy]]:
         date = datetime.fromisoformat(now.strftime(f'{now.year}-{now.month}-{now.day} 00:00:00'))
         result = await self.connection.execute(
-            select(User, UserDate)
-            .join(User, and_(UserDate.user_id == User.id))
-            .where(UserDate.pdr_date == date)
-            .options(joinedload(UserDate.user))
+            select(User, UserPregnancy)
+            .join(User, and_(UserPregnancy.user_id == User.id))
+            .where(UserPregnancy.pdr_date == date)
+            .options(joinedload(UserPregnancy.user))
         )
         return list((row[0], row[1]) for row in result.all())
 
-    async def get_or_create_user_date(self, user_id: int, chat_id: int) -> UserDate | None:
+    async def get_or_create_user_date(self, user_id: int, chat_id: int) -> UserPregnancy | None:
         result = await self.connection.execute(
-            select(UserDate)
+            select(UserPregnancy)
             .where(
-                UserDate.user_id == user_id,
-                UserDate.chat_id == chat_id,
+                UserPregnancy.user_id == user_id,
+                UserPregnancy.chat_id == chat_id,
             )
         )
         response = result.scalars().first()
         if not response:
             result = await self.connection.execute(
-                select(func.max(UserDate.id))
+                select(func.max(UserPregnancy.id))
             )
             max_id = result.scalar() or 1
-            response = UserDate(
+            response = UserPregnancy(
                 id=max_id + 1,
                 user_id=user_id,
                 chat_id=chat_id,
+                gender=None,
                 pdr_date=None,
                 period_date=None,
                 needs_backup_update=True,
@@ -274,68 +275,69 @@ class UserDateRepository:
             await self.connection.commit()
         return response
 
-    async def get_dates_to_backup(self) -> list[UserDate]:
+    async def get_pregnancies_to_backup(self) -> list[UserPregnancy]:
         """
-        Retrieves all user dates marked for backup.
+        Retrieves all user pregnancies marked for backup.
 
-        :return: A list of dates that need backup updates.
-        :rtype: list[UserDate]
+        :return: A list of pregnancies that need backup updates.
+        :rtype: list[UserPregnancy]
         """
         result = await self.connection.execute(
-            select(UserDate)
-            .where(UserDate.needs_backup_update.is_(True))
+            select(UserPregnancy)
+            .where(UserPregnancy.needs_backup_update.is_(True))
         )
         return list(result.scalars().all())
 
-    async def update_user_period_date(self, date: UserDate, period_date: datetime) -> None:
-        date.period_date = period_date
-        date.needs_backup_update = True
-        self.connection.add(date)
+    async def update_user_period_date(self, pregnancy: UserPregnancy, period_date: datetime) -> None:
+        pregnancy.period_date = period_date
+        pregnancy.needs_backup_update = True
+        self.connection.add(pregnancy)
         await self.connection.commit()
 
-    async def update_user_pdr_date(self, date: UserDate, pdr_date: datetime) -> None:
-        date.pdr_date = pdr_date
-        date.needs_backup_update = True
-        self.connection.add(date)
+    async def update_user_pdr_date(self, pregnancy: UserPregnancy, pdr_date: datetime) -> None:
+        pregnancy.pdr_date = pdr_date
+        pregnancy.needs_backup_update = True
+        self.connection.add(pregnancy)
         await self.connection.commit()
 
-    async def mark_date_as_synced(self, date: UserDate) -> None:
+    async def mark_pregnancy_as_synced(self, pregnancy: UserPregnancy) -> None:
         """
         Marks a user date as synced (backup updated).
 
-        :param date: The date to mark as synced.
-        :type date: UserDate
+        :param pregnancy: The date to mark as synced.
+        :type pregnancy: UserPregnancy
         """
-        date.needs_backup_update = False
-        self.connection.add(date)
+        pregnancy.needs_backup_update = False
+        self.connection.add(pregnancy)
         await self.connection.commit()
 
-    async def sync_dates(self, dates: list[UserDate]) -> None:
+    async def sync_pregnancies(self, pregnancies: list[UserPregnancy]) -> None:
         """
-        Synchronizes user dates with the database.
+        Synchronizes user pregnancies with the database.
 
-        :param dates: A list of dates to synchronize.
-        :type dates: list[UserDate]
+        :param pregnancies: A list of pregnancies to synchronize.
+        :type pregnancies: list[UserPregnancy]
         """
-        new_dates_dict = {}
-        dates_to_add, existing_date_ids = [], []
-        existing_dates = await self.get_all_dates()  # Get all existing records
-        for date in dates:
-            date_key = (date.user_id, date.chat_id)
-            new_dates_dict.update({date_key: date})
+        new_pregnancies_dict = {}
+        pregnancies_to_add, existing_pregnancy_ids = [], []
+        existing_pregnancies = await self.get_all_pregnancy()  # Get all existing records
+        for pregnancy in pregnancies:
+            pregnancy_key = (pregnancy.user_id, pregnancy.chat_id)
+            new_pregnancies_dict.update({pregnancy_key: pregnancy})
 
-        for date in existing_dates:
-            date_key = (date.user_id, date.chat_id)
-            if date_key in new_dates_dict:
-                existing_date_ids.append(date_key)
-                date.pdr_date = new_dates_dict[date_key].pdr_date
-                date.period_date = new_dates_dict[date_key].period_date
+        for pregnancy in existing_pregnancies:
+            pregnancy_key = (pregnancy.user_id, pregnancy.chat_id)
+            if pregnancy_key in new_pregnancies_dict:
+                existing_pregnancy_ids.append(pregnancy_key)
+                pregnancy.pdr_date = new_pregnancies_dict[pregnancy_key].pdr_date
+                pregnancy.period_date = new_pregnancies_dict[pregnancy_key].period_date
+                pregnancy.gender = new_pregnancies_dict[pregnancy_key].gender
 
-        for date_key, date in new_dates_dict.items():
-            if date_key not in existing_date_ids:
-                dates_to_add.append(date)
+        for pregnancy_key, pregnancy in new_pregnancies_dict.items():
+            if pregnancy_key not in existing_pregnancy_ids:
+                pregnancies_to_add.append(pregnancy)
 
-        if dates_to_add:
-            self.connection.add_all(dates_to_add)
+        if pregnancies_to_add:
+            self.connection.add_all(pregnancies_to_add)
 
         await self.connection.commit()
