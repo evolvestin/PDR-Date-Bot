@@ -300,6 +300,12 @@ class UserPregnancyRepository:
         self.connection.add(pregnancy)
         await self.connection.commit()
 
+    async def update_user_baby_gender(self, pregnancy: UserPregnancy, gender_id: int) -> None:
+        pregnancy.gender = gender_id
+        pregnancy.needs_backup_update = True
+        self.connection.add(pregnancy)
+        await self.connection.commit()
+
     async def mark_pregnancy_as_synced(self, pregnancy: UserPregnancy) -> None:
         """
         Marks a user date as synced (backup updated).

@@ -241,7 +241,13 @@ class UserService:
             await db.update_user_pdr_date(pregnancy=user_pregnancy, pdr_date=date)
 
     @staticmethod
-    async def delete_chat_message(message: types.Message) -> bool:
+    async def update_user_baby_gender(user_id: int, chat_id: int, gender_id: int) -> None:
+        async with UserPregnancyRepository() as db:
+            user_pregnancy = await db.get_or_create_user_pregnancy(user_id, chat_id)
+            await db.update_user_baby_gender(pregnancy=user_pregnancy, gender_id=gender_id)
+
+    @staticmethod
+    async def delete_chat_message(message: types.Message, delete_reply: bool) -> bool:
         deleted = False
         if message.chat.id < 0 and message.reply_to_message:
             deleted = True
@@ -252,6 +258,14 @@ class UserService:
                 )
             except IndexError and Exception:
                 pass
+            if delete_reply:
+                try:
+                    await BotInstance().main_bot.delete_message(
+                        chat_id=message.chat.id,
+                        message_id=message.reply_to_message.message_id,
+                    )
+                except IndexError and Exception:
+                    pass
         return deleted
 
 
@@ -292,7 +306,7 @@ class UserTextGenerator:
         text = self.texts['period_instruction'].format(example_weeks, example_days, example_period_text)
         return text, example_weeks, example_days
 
-    async def get_pdr_or_period_info(
+    async def get_user_complete_info(
             self,
             message: types.Message,
             now: datetime,
@@ -333,7 +347,15 @@ class UserTextGenerator:
             else:
                 lines.append(self.texts['period_unknown'])
 
-            if not pregnancy.pdr_date or not pregnancy.period_date:
+            if pregnancy.gender:
+                gender_text_key = 'baby_male_button'
+                if pregnancy.gender == 2:
+                    gender_text_key = 'baby_female_button'
+                lines.append(self.texts['gender_text'].format(self.texts[gender_text_key]))
+            else:
+                lines.append(self.texts['gender_unknown'])
+
+            if not pregnancy.pdr_date or not pregnancy.period_date or not pregnancy.gender:
                 lines.append('')
                 if not pregnancy.pdr_date:
                     if reply_user:
@@ -357,6 +379,10 @@ class UserTextGenerator:
                         )
                     else:
                         lines.append(period_instruction_text)
+
+                if not pregnancy.gender:
+                    lines.append(self.texts['gender_instruction_reply'].format(user_full_name))
+
         else:
             if 'period' in instruction_key:
                 period_instruction_text, _, _ = self.get_example_period_instruction(now)

@@ -44,3 +44,10 @@ class Keys:
             builder.add(*values) if type(values) is list else builder.add(*[values])
             builder = builder.adjust(row_width, repeat=True)
         return builder.as_markup()
+
+    def choose_gender(self):
+        buttons = [
+            self.button(text=self.texts['baby_male_button'], callback_data='baby_gender_male'),
+            self.button(text=self.texts['baby_female_button'], callback_data='baby_gender_female'),
+        ]
+        return self.get_keyboard(buttons)

@@ -37,6 +37,8 @@ async def bot_command_handler(message: types.Message) -> None:
         log_texts.extend(await user_commands.pdr_command_handler())
     elif message_text.startswith('/period'):
         log_texts.extend(await user_commands.period_command_handler())
+    elif message_text.startswith('/gender'):
+        await user_commands.gender_command_handler()
     elif message_text.startswith('/id'):
         await user_commands.id_command_handler()
     elif message_text.startswith(('/start', '/help')):
@@ -183,14 +185,23 @@ class GeneralCommands:
                 lines.append(self.texts['chat_id'].format(self.message.chat.id))
         await sender.message(chat_id=self.message.chat.id, text='\n'.join(lines), reply_id=self.message.message_id)
 
+    async def gender_command_handler(self) -> None:
+        reply_id = None
+        keyboard = self.keys.choose_gender()
+        text = self.texts['gender_private_instruction']
+        if self.message.chat.type != 'private':
+            reply_id = self.message.message_id
+            text = self.texts['gender_chat_instruction'].format(self.user.full_name.title())
+        await sender.message(chat_id=self.message.chat.id, text=text, keyboard=keyboard, reply_id=reply_id)
+
     async def pdr_command_handler(self) -> list[str]:
         await user_service.update_variable_bot_username()
         reply_id = self.message.message_id
         if self.user_text_service.message_text in ['/pdr', f'/pdr@{user_service.bot_username}'.lower()]:
-            deleted = await user_service.delete_chat_message(message=self.message)
+            deleted = await user_service.delete_chat_message(message=self.message, delete_reply=False)
             if deleted:
                 reply_id = None
-            text, log_texts = await self.user_text_service.get_pdr_or_period_info(
+            text, log_texts = await self.user_text_service.get_user_complete_info(
                 message=self.message,
                 now=user_service.get_now(),
                 instruction_key='pdr_instruction',
@@ -224,13 +235,13 @@ class GeneralCommands:
         now = user_service.get_now()
         reply_id = self.message.message_id
         if self.user_text_service.message_text in ['/period', f'/period@{user_service.bot_username}'.lower()]:
-            deleted = await user_service.delete_chat_message(message=self.message)
+            deleted = await user_service.delete_chat_message(message=self.message, delete_reply=False)
             if deleted:
                 reply_id = None
 
-            text, log_texts = await self.user_text_service.get_pdr_or_period_info(
-                message=self.message,
+            text, log_texts = await self.user_text_service.get_user_complete_info(
                 now=now,
+                message=self.message,
                 instruction_key='period_instruction',
             )
         else:
