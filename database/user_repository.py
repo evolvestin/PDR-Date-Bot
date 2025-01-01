@@ -239,7 +239,7 @@ class UserPregnancyRepository:
         return list((row[0], row[1]) for row in result.all())
 
     async def get_users_with_today_pdr(self, now: datetime) -> list[tuple[User, UserPregnancy]]:
-        date = datetime.fromisoformat(now.strftime(f'{now.year}-{now.month}-{now.day} 00:00:00'))
+        date = datetime.fromisoformat(now.strftime(f'%Y-%m-%d 00:00:00'))
         result = await self.connection.execute(
             select(User, UserPregnancy)
             .join(User, and_(UserPregnancy.user_id == User.id))
