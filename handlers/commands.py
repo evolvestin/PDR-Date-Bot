@@ -252,7 +252,8 @@ class GeneralCommands:
             if len(split) >= 1 and split[0]:
                 weeks = int(split[0])
                 days = int(split[1]) if len(split) >= 2 else 0
-                user_period = (now - timedelta(weeks=weeks, days=days)).replace(microsecond=0)
+                raw_user_period = now - timedelta(weeks=weeks, days=days)
+                user_period = datetime.fromisoformat(raw_user_period.strftime('%Y-%m-%d 00:00:00'))
                 await user_service.update_user_period_date(
                     user_id=self.user.id,
                     chat_id=self.message.chat.id,
