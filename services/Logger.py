@@ -77,7 +77,7 @@ class EntitiesToHTML:
         if entities:
             position = 0
             for entity in text_list:
-                true_length = len(entity.encode('utf-16')) // 2
+                true_length = len(entity.encode('utf-16-le')) // 2
                 while true_length > 1:
                     text_list.insert(position + 1, '')
                     true_length -= 1
@@ -862,7 +862,7 @@ class TelegramLogger(TelegramLogHandler):
                     current_log_chunk += f'{log.text}\n'
                 else:
                     logs_to_send[current_log_chunk.strip('\n')].extend(current_log_ids)
-                    current_log_ids = []
+                    current_log_ids = [log.id]
                     current_log_chunk = f'{log.text}\n'
 
             if current_log_chunk:
