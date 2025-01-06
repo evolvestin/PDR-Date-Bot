@@ -832,8 +832,8 @@ class TelegramLogger(TelegramLogHandler):
                     f'_from_{logged_message.message_id - len(posted_logs)}'
                     f'_to_{logged_message.message_id}.json'
                 )
-                file = types.BufferedInputFile(json.dumps(backup).encode('utf-16'), filename=file_name)
-                response = await log_sender.message(self.log_backups_id, file=file, text=self.bot_log_header)
+                file = types.BufferedInputFile(json.dumps(backup, default=str).encode('utf-16'), filename=file_name)
+                response = await log_sender.message(self.log_backups_id, file=file)
 
                 async with LogRepository() as db:
                     await db.remove_posted_logs(log_ids_to_delete)
