@@ -77,7 +77,7 @@ class EntitiesToHTML:
         if entities:
             position = 0
             for entity in text_list:
-                true_length = len(entity.encode('utf-16-le')) // 2
+                true_length = len(entity.encode('utf-16')) // 2
                 while true_length > 1:
                     text_list.insert(position + 1, '')
                     true_length -= 1
@@ -803,12 +803,12 @@ class TelegramLogger(TelegramLogHandler):
         logged_message = await log_sender.message(self.logs_chat_id, text=log_text, reply_id=reply_id)
 
         async with LogRepository() as db:
-
-            await db.update_posted_logs(
-                record_ids=log_ids,
-                post_date=logged_message.date,
-                post_id=logged_message.message_id,
-            )
+            if logged_message:
+                await db.update_posted_logs(
+                    record_ids=log_ids,
+                    post_date=logged_message.date,
+                    post_id=logged_message.message_id,
+                )
 
         # Check if logs need to be saved as backups
         if logged_message and logged_message.message_id % LOGS_CUTOFF == 0:
@@ -832,7 +832,7 @@ class TelegramLogger(TelegramLogHandler):
                     f'_from_{logged_message.message_id - len(posted_logs)}'
                     f'_to_{logged_message.message_id}.json'
                 )
-                file = types.BufferedInputFile(json.dumps(backup).encode('utf-16-le'), filename=file_name)
+                file = types.BufferedInputFile(json.dumps(backup).encode('utf-16'), filename=file_name)
                 response = await log_sender.message(self.log_backups_id, file=file, text=self.bot_log_header)
 
                 async with LogRepository() as db:

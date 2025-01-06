@@ -129,7 +129,7 @@ class TelegramError:
         if message:
             caption = f'{title}{code(error)}' if 0 < len_error_text <= 1024 else None
             file_name = f"error_report_{datetime.now(timezone.utc).strftime('%Y-%m-%d_%H-%M-%S')}.json"
-            file = types.BufferedInputFile(str(message).encode('utf-16-le'), filename=file_name)
+            file = types.BufferedInputFile(str(message).encode('utf-16'), filename=file_name)
             response = await sender.message(chat_id=self.dev_chat_id, file=file, text=caption)
             reply_id = response.message_id if response else reply_id
 
@@ -171,5 +171,5 @@ class TelegramError:
                 f'{more_error}'
             )
 
-            file = types.BufferedInputFile(error_text.encode('utf-16-le'), filename='error_report_fatal.json')
+            file = types.BufferedInputFile(error_text.encode('utf-16'), filename='error_report_fatal.json')
             await sender.message(chat_id=self.dev_chat_id, file=file, text='FATAL ERROR #fatal', raises=False)
