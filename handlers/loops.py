@@ -37,7 +37,7 @@ class TaskHandlers:
                 await function(**kwargs)
             except IndexError and Exception:
                 await errors.TelegramError().handle_error()
-                await asyncio.sleep(15)
+                await asyncio.sleep(30)
             if not repeating:
                 break
 
@@ -55,7 +55,8 @@ class TaskHandlers:
             async with TextsRepository() as db_texts:
                 texts = await db_texts.get_texts_by_language(user.language)
             text = texts['pdr_notify'].format(user.id, user.full_name)
-            await sender.message(chat_id=pregnancy.chat_id, text=text)
+
+            await sender.message(chat_id=pregnancy.chat_id, text=text, raises=False)
 
             log_text = (
                 f"{user.full_name}{f' [@{user.username}]' if user.username else ''} {code(user.id)}:\n"
@@ -91,7 +92,7 @@ class TaskHandlers:
                     difference_seconds=int(difference.total_seconds()),
                 )
                 text = texts['period_notify'].format(user.id, user.full_name, period_text)
-                await sender.message(chat_id=pregnancy.chat_id, text=text)
+                await sender.message(chat_id=pregnancy.chat_id, text=text, raises=False)
 
                 log_text = (
                     f"{user.full_name}{f' [@{user.username}]' if user.username else ''} {code(user.id)}:\n"

@@ -187,7 +187,7 @@ class ChatMemberLogHandler:
         changes = []
         permissions = {
             # ChatMemberAdministrator permissions
-            'can_manage_chat': f'управлять {self.ru_user_type}ом',
+            'can_manage_chat': f'управлять {self.ru_chat_type}ом',
 
             'can_post_messages': 'отправлять сообщения',
             'can_edit_messages': 'редактировать сообщения',
