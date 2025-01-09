@@ -489,7 +489,7 @@ class UsersUpdater:
                             chat_id=int(record.get('chat_id', user_id)),
                             pdr_date=pdr_date,
                             period_date=period_date,
-                            gender=record.get('gender'),
+                            gender=int(record['gender']) if record.get('gender') else None,
                         )
                     )
         return response

@@ -55,7 +55,7 @@ class UserPregnancy(Base):
             f'chat_id={self.chat_id}, '
             f'pdr_date={self.pdr_date!r}, '
             f'period_date={self.period_date!r}, '
-            f'gender={self.period_date!r}, '
+            f'gender={self.gender}, '
             f'needs_backup_update={self.needs_backup_update})>'
         )
 
